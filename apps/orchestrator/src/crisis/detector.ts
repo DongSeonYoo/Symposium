@@ -1,5 +1,5 @@
 import type { DbClient } from "@symposium/db";
-import { systemState, eq } from "@symposium/db";
+import { systemState, eq, sql } from "@symposium/db";
 
 export interface MacroSnapshot {
   vix: number;
@@ -91,7 +91,7 @@ export async function detectAndUpdateCrisis(
   if (JSON.stringify(current) !== JSON.stringify(next)) {
     await db
       .update(systemState)
-      .set({ value: next as unknown as Record<string, unknown>, updatedAt: now })
+      .set({ value: next as unknown as Record<string, unknown>, updatedAt: sql`NOW()` })
       .where(eq(systemState.key, "crisis_mode"));
   }
 
