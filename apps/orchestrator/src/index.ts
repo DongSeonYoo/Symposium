@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createServer } from "node:http";
 import { createDbClient } from "@symposium/db";
 import { loadApiKeysFromDb } from "./config/load-keys.js";
 import { McpClientManager } from "./mcp/client-manager.js";
@@ -168,12 +169,52 @@ async function main(): Promise<void> {
     runCrisisCheck: () => runCrisisCheck(db),
   });
 
+  // ── 수동 트리거 HTTP 서버 ─────────────────────────────────
+  // POST /run-now → 분석 사이클 즉시 실행
+  let cycleRunning = false;
+  const triggerPort = process.env.TRIGGER_PORT ? parseInt(process.env.TRIGGER_PORT) : 3010;
+  const httpServer = createServer((req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", process.env.NEXT_PUBLIC_APP_URL ?? "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") { res.writeHead(204).end(); return; }
+
+    if (req.method === "POST" && req.url === "/run-now") {
+      if (cycleRunning) {
+        res.writeHead(409, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "이미 실행 중입니다" }));
+        return;
+      }
+      res.writeHead(202, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, message: "분석 사이클 시작됨" }));
+
+      cycleRunning = true;
+      runAnalysisCycle(mcp, anthropic)
+        .catch((err) => console.error("[orchestrator] manual trigger error:", err))
+        .finally(() => { cycleRunning = false; });
+      return;
+    }
+
+    if (req.method === "GET" && req.url === "/status") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ running: cycleRunning }));
+      return;
+    }
+
+    res.writeHead(404).end();
+  });
+  httpServer.listen(triggerPort, () => {
+    console.error(`[orchestrator] trigger server :${triggerPort} (POST /run-now)`);
+  });
+
   // Graceful shutdown
   const shutdown = async (signal: string): Promise<void> => {
     console.error(`[orchestrator] ${signal} received — shutting down`);
     stopScheduler(tasks);
     poller.stop();
     await mcp.disconnect();
+    httpServer.close();
     process.exit(0);
   };
 

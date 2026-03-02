@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Providers } from "../providers";
+import { RunNowButton } from "@/components/run-now-button";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -54,6 +55,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <RunNowButton />
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span className="pulse-dot" style={{
               width: "6px", height: "6px",
