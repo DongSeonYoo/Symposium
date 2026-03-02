@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { KisClient, KisMockClient } from "./kis-client.js";
 import { getPrice } from "./tools/get-price.js";
@@ -90,121 +91,116 @@ function mockOrderResult(ticker: string, side: string, quantity: number, price: 
   };
 }
 
-// ── MCP 서버 ─────────────────────────────────────────
-const server = new McpServer({
-  name: "symposium-kis",
-  version: "0.1.0",
-});
-
-// ── kis_get_price ────────────────────────────────────
-server.tool(
-  "kis_get_price",
-  "종목 현재가, 등락률, 거래량, PER/PBR 조회",
-  { ticker: z.string().describe("종목코드 (예: 005930)") },
-  async ({ ticker }) => {
-    const data = isMock ? mockPrice(ticker) : await getPrice(client as KisClient, ticker);
-    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-  }
-);
-
-// ── kis_get_ohlcv ────────────────────────────────────
-server.tool(
-  "kis_get_ohlcv",
-  "일봉 OHLCV 데이터 조회",
-  {
-    ticker: z.string().describe("종목코드"),
-    days: z.number().int().min(1).max(365).default(30).describe("조회 일수"),
-  },
-  async ({ ticker, days }) => {
-    const data = isMock ? mockOhlcv(ticker, days) : await getOhlcv(client as KisClient, ticker, days);
-    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-  }
-);
-
-// ── kis_get_balance ──────────────────────────────────
-server.tool(
-  "kis_get_balance",
-  "계좌 잔고 및 보유 종목 조회",
-  {},
-  async () => {
-    const data = isMock ? mockBalance() : await getBalance(client as KisClient);
-    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-  }
-);
-
-// ── kis_get_orders ───────────────────────────────────
-server.tool(
-  "kis_get_orders",
-  "당일 주문 체결 내역 조회",
-  {},
-  async () => {
-    const data = isMock ? [] : await getOrders(client as KisClient);
-    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-  }
-);
-
-// ── kis_place_order ──────────────────────────────────
-server.tool(
-  "kis_place_order",
-  "매수/매도 주문 실행. 반드시 사용자 Confirm 후에만 호출할 것.",
-  {
-    ticker: z.string().describe("종목코드"),
-    side: z.enum(["BUY", "SELL"]).describe("매수/매도"),
-    quantity: z.number().int().positive().describe("수량"),
-    price: z.number().min(0).describe("지정가 (0이면 시장가)"),
-    confirmed: z.literal(true).describe("사용자 승인 여부 — 반드시 true"),
-  },
-  async ({ ticker, side, quantity, price, confirmed }) => {
-    const result = isMock
-      ? mockOrderResult(ticker, side, quantity, price)
-      : await placeOrder(client as KisClient, {
-          ticker, side, quantity, price,
-          orderType: price === 0 ? "01" : "00",
-          confirmed,
-        });
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-  }
-);
-
-// ── kis_cancel_order ─────────────────────────────────
-server.tool(
-  "kis_cancel_order",
-  "주문 취소",
-  {
-    orderId: z.string().describe("주문번호"),
-    ticker: z.string().describe("종목코드"),
-    quantity: z.number().int().positive().describe("취소 수량"),
-  },
-  async ({ orderId, ticker, quantity }) => {
-    if (isMock) {
-      return { content: [{ type: "text", text: JSON.stringify({ orderId, ticker, quantity, status: "cancelled", message: "[MOCK] 취소 완료" }) }] };
+// ── tool 등록 함수 ────────────────────────────────────
+function registerTools(s: McpServer): void {
+  s.tool("kis_get_price", "종목 현재가, 등락률, 거래량, PER/PBR 조회",
+    { ticker: z.string().describe("종목코드 (예: 005930)") },
+    async ({ ticker }) => {
+      const data = isMock ? mockPrice(ticker) : await getPrice(client as KisClient, ticker);
+      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
     }
-    const result = await cancelOrder(client as KisClient, { orderId, ticker, quantity });
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-  }
-);
+  );
+
+  s.tool("kis_get_ohlcv", "일봉 OHLCV 데이터 조회",
+    {
+      ticker: z.string().describe("종목코드"),
+      days: z.number().int().min(1).max(365).default(30).describe("조회 일수"),
+    },
+    async ({ ticker, days }) => {
+      const data = isMock ? mockOhlcv(ticker, days) : await getOhlcv(client as KisClient, ticker, days);
+      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+    }
+  );
+
+  s.tool("kis_get_balance", "계좌 잔고 및 보유 종목 조회", {},
+    async () => {
+      const data = isMock ? mockBalance() : await getBalance(client as KisClient);
+      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+    }
+  );
+
+  s.tool("kis_get_orders", "당일 주문 체결 내역 조회", {},
+    async () => {
+      const data = isMock ? [] : await getOrders(client as KisClient);
+      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+    }
+  );
+
+  s.tool("kis_place_order", "매수/매도 주문 실행. 반드시 사용자 Confirm 후에만 호출할 것.",
+    {
+      ticker: z.string().describe("종목코드"),
+      side: z.enum(["BUY", "SELL"]).describe("매수/매도"),
+      quantity: z.number().int().positive().describe("수량"),
+      price: z.number().min(0).describe("지정가 (0이면 시장가)"),
+      confirmed: z.literal(true).describe("사용자 승인 여부 — 반드시 true"),
+    },
+    async ({ ticker, side, quantity, price, confirmed }) => {
+      const result = isMock
+        ? mockOrderResult(ticker, side, quantity, price)
+        : await placeOrder(client as KisClient, {
+            ticker, side, quantity, price,
+            orderType: price === 0 ? "01" : "00",
+            confirmed,
+          });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  s.tool("kis_cancel_order", "주문 취소",
+    {
+      orderId: z.string().describe("주문번호"),
+      ticker: z.string().describe("종목코드"),
+      quantity: z.number().int().positive().describe("취소 수량"),
+    },
+    async ({ orderId, ticker, quantity }) => {
+      if (isMock) {
+        return { content: [{ type: "text", text: JSON.stringify({ orderId, ticker, quantity, status: "cancelled", message: "[MOCK] 취소 완료" }) }] };
+      }
+      const result = await cancelOrder(client as KisClient, { orderId, ticker, quantity });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+}
 
 // ── 서버 시작 ────────────────────────────────────────
 const port = process.env.PORT ? parseInt(process.env.PORT) : undefined;
 
 if (port) {
-  // HTTP 모드 (orchestrator 연동, Railway 배포)
-  // stateless: transport 하나를 서버 생명주기 동안 재사용
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-  await server.connect(transport);
+  // HTTP 모드 — stateful: 세션별 McpServer + transport 관리
+  const sessions = new Map<string, StreamableHTTPServerTransport>();
 
   const httpServer = createServer(async (req, res) => {
-    if (req.url === "/mcp") {
-      await transport.handleRequest(req, res);
-    } else {
-      res.writeHead(404).end();
+    if (req.url !== "/mcp") { res.writeHead(404).end(); return; }
+    try {
+      const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
+      if (sessionId && sessions.has(sessionId)) {
+        await sessions.get(sessionId)!.handleRequest(req, res);
+      } else if (!sessionId) {
+        const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => randomUUID() });
+        const s = new McpServer({ name: "symposium-kis", version: "0.1.0" });
+        registerTools(s);
+        transport.onclose = () => { sessions.delete(transport.sessionId!); };
+        await s.connect(transport);
+        await transport.handleRequest(req, res);
+        // handleRequest 완료 후 sessionId가 확정됨
+        if (transport.sessionId) sessions.set(transport.sessionId, transport);
+      } else {
+        res.writeHead(404).end(JSON.stringify({ error: "session not found" }));
+      }
+    } catch (err) {
+      console.error("[symposium-kis] handleRequest error:", err);
+      if (!res.headersSent) res.writeHead(500).end(String(err));
     }
   });
+
   httpServer.listen(port, () => {
     console.error(`[symposium-kis] HTTP MCP 서버 시작됨 :${port}/mcp`);
   });
 } else {
   // stdio 모드 (Claude Desktop 등)
+  const server = new McpServer({ name: "symposium-kis", version: "0.1.0" });
+  registerTools(server);
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("[symposium-kis] stdio MCP 서버 시작됨");
