@@ -124,8 +124,19 @@ async function main(): Promise<void> {
   const mcp = new McpClientManager();
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  // MCP 서버 연결
-  await mcp.connect();
+  // MCP 서버 연결 (서버가 준비될 때까지 재시도)
+  const MAX_CONNECT_RETRIES = 10;
+  const CONNECT_RETRY_DELAY_MS = 2_000;
+  for (let i = 1; i <= MAX_CONNECT_RETRIES; i++) {
+    try {
+      await mcp.connect();
+      break;
+    } catch (err) {
+      if (i === MAX_CONNECT_RETRIES) throw err;
+      console.error(`[orchestrator] MCP 연결 실패 (${i}/${MAX_CONNECT_RETRIES}), ${CONNECT_RETRY_DELAY_MS}ms 후 재시도...`);
+      await new Promise((r) => setTimeout(r, CONNECT_RETRY_DELAY_MS));
+    }
+  }
 
   // Confirm 폴링 시작
   const poller = new ConfirmPoller(
