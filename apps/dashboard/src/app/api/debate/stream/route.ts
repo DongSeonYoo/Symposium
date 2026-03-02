@@ -18,6 +18,11 @@ const CycleIdSchema = z
   .string()
   .regex(UUID_RE, "cycleId must be a valid UUID");
 
+// ── 세션 검증 ────────────────────────────────────────────────
+function verifySession(req: NextRequest): boolean {
+  return !!req.cookies.get("sym_session")?.value;
+}
+
 const POLL_MS = 500;
 const TIMEOUT_MS = 15 * 60 * 1_000; // 15분
 
@@ -26,6 +31,11 @@ function sleep(ms: number): Promise<void> {
 }
 
 export async function GET(req: NextRequest): Promise<Response> {
+  // 세션 검증
+  if (!verifySession(req)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   // cycleId 검증
   const cycleId = req.nextUrl.searchParams.get("cycleId");
   const parsed = CycleIdSchema.safeParse(cycleId);
