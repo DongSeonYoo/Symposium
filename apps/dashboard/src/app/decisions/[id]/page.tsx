@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { getDb } from "@/lib/db";
 import { decisions, eq } from "@symposium/db";
 import { StatusBadge } from "@/components/status-badge";
@@ -196,9 +198,11 @@ export default async function DecisionDetailPage({
       {d.debateSummary && (
         <Panel>
           <SectionLabel>DEBATE SUMMARY</SectionLabel>
-          <p style={{ fontSize: "13px", lineHeight: 1.7, color: "var(--text-secondary)", whiteSpace: "pre-wrap", margin: 0 }}>
-            {d.debateSummary}
-          </p>
+          <div style={{ fontSize: "13px", lineHeight: 1.8, color: "var(--text-secondary)" }} className="md-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {d.debateSummary}
+            </ReactMarkdown>
+          </div>
         </Panel>
       )}
 

@@ -2,16 +2,16 @@
 
 @layer base {
   :root {
-    --bg-base:       #0a0b0d;
-    --bg-panel:      #0f1115;
-    --bg-panel-alt:  #13161c;
-    --bg-elevated:   #1a1e26;
-    --border:        #1e2330;
-    --border-subtle: #151820;
+    --bg-base:       #0d0f13;
+    --bg-panel:      #131720;
+    --bg-panel-alt:  #181d27;
+    --bg-elevated:   #1f2535;
+    --border:        #262e42;
+    --border-subtle: #1c2233;
 
-    --text-primary:  #e8eaf0;
-    --text-secondary:#7a8299;
-    --text-muted:    #3d4455;
+    --text-primary:  #eceef5;
+    --text-secondary:#9aa3bc;
+    --text-muted:    #5c6680;
 
     --accent-yellow: #f5c842;
     --accent-green:  #2dce89;
@@ -60,6 +60,55 @@
     font-family: 'Geist Mono', 'JetBrains Mono', 'Fira Code', monospace;
     font-variant-numeric: tabular-nums;
   }
+
+  /* markdown body */
+  .md-body h1, .md-body h2, .md-body h3, .md-body h4 {
+    color: var(--text-primary);
+    font-weight: 600;
+    margin: 1.2em 0 0.5em;
+    line-height: 1.4;
+  }
+  .md-body h1 { font-size: 16px; }
+  .md-body h2 { font-size: 14px; letter-spacing: 0.02em; }
+  .md-body h3 { font-size: 13px; color: var(--text-secondary); }
+  .md-body p  { margin: 0.6em 0; }
+  .md-body ul, .md-body ol { margin: 0.5em 0 0.5em 1.2em; padding: 0; }
+  .md-body li { margin: 0.25em 0; }
+  .md-body strong { color: var(--text-primary); font-weight: 600; }
+  .md-body em { color: var(--accent-yellow); font-style: normal; }
+  .md-body code {
+    font-family: 'Geist Mono', 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--bg-elevated);
+    color: var(--accent-blue);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .md-body blockquote {
+    border-left: 2px solid var(--border);
+    padding-left: 12px;
+    color: var(--text-muted);
+    margin: 0.8em 0;
+  }
+  .md-body hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.2em 0;
+  }
+  .md-body table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .md-body th {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 400;
+  }
+  .md-body td { padding: 7px 10px; border-bottom: 1px solid var(--border-subtle); }
+  .md-body > *:first-child { margin-top: 0; }
+  .md-body > *:last-child  { margin-bottom: 0; }
 }
 
 /* ── Google Fonts (loaded via layout) ── */
