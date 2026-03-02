@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-base:       #0a0b0d;
+    --bg-panel:      #0f1115;
+    --bg-panel-alt:  #13161c;
+    --bg-elevated:   #1a1e26;
+    --border:        #1e2330;
+    --border-subtle: #151820;
+
+    --text-primary:  #e8eaf0;
+    --text-secondary:#7a8299;
+    --text-muted:    #3d4455;
+
+    --accent-yellow: #f5c842;
+    --accent-green:  #2dce89;
+    --accent-blue:   #4e9cf5;
+    --accent-red:    #f55c5c;
+    --accent-gray:   #5a6072;
+
+    /* status colors */
+    --status-pending:   #f5c842;
+    --status-confirmed: #4e9cf5;
+    --status-executed:  #2dce89;
+    --status-rejected:  #f55c5c;
+    --status-expired:   #5a6072;
+  }
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  html {
+    font-family: 'DM Sans', 'Helvetica Neue', sans-serif;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* scanline overlay for terminal feel */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* mono numbers */
+  .mono {
+    font-family: 'Geist Mono', 'JetBrains Mono', 'Fira Code', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ── Google Fonts (loaded via layout) ── */
+@layer utilities {
+  .text-accent-yellow { color: var(--accent-yellow); }
+  .text-accent-green  { color: var(--accent-green);  }
+  .text-accent-blue   { color: var(--accent-blue);   }
+  .text-accent-red    { color: var(--accent-red);    }
+  .text-muted         { color: var(--text-muted);    }
+  .text-secondary     { color: var(--text-secondary); }
+
+  .bg-panel      { background: var(--bg-panel); }
+  .bg-panel-alt  { background: var(--bg-panel-alt); }
+  .bg-elevated   { background: var(--bg-elevated); }
+  .border-sys    { border-color: var(--border); }
+
+  /* action pill */
+  .pill-buy  { background: rgba(78,156,245,0.12); color: var(--accent-blue);   border: 1px solid rgba(78,156,245,0.25); }
+  .pill-sell { background: rgba(245,92,92,0.12);  color: var(--accent-red);    border: 1px solid rgba(245,92,92,0.25);  }
+  .pill-hold { background: rgba(90,96,114,0.15);  color: var(--text-secondary);border: 1px solid rgba(90,96,114,0.2);  }
+
+  /* flash animation for live update indicator */
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+  .pulse-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in-up { animation: fade-in-up 0.35s ease both; }
+}
