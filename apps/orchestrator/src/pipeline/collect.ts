@@ -7,6 +7,7 @@
 import type { McpClientManager } from "../mcp/client-manager.js";
 import type { DartFinancial, DartDisclosure, NewsSentiment } from "@symposium/shared-types";
 import { fetchMacroContext } from "./macro-fetcher.js";
+import type { CycleEmitter } from "./emitter.js";
 
 export interface CollectedData {
   ticker: string;
@@ -47,7 +48,8 @@ export interface CollectedData {
 export async function collectMarketData(
   ticker: string,
   name: string,
-  mcp: McpClientManager
+  mcp: McpClientManager,
+  emitter?: CycleEmitter
 ): Promise<CollectedData> {
   // ── 1. KIS 시세 ────────────────────────────────────────────
   let marketData: CollectedData["marketData"] = {
@@ -130,7 +132,7 @@ export async function collectMarketData(
   // ── 4. 거시경제 — FRED API (VIX/US10Y/DXY/WTI) + KIS MCP (USD/KRW, KOSPI) ──
   const macroContext = await fetchMacroContext(mcp);
 
-  return {
+  const result: CollectedData = {
     ticker,
     name,
     marketData,
@@ -146,6 +148,19 @@ export async function collectMarketData(
       news: newsSource,
     },
   };
+
+  // emit collect:done 이벤트
+  await emitter?.emit("collect:done", {
+    ticker,
+    sources: result.sources,
+    macroSnapshot: {
+      vix: macroContext.vix,
+      usdKrw: macroContext.usdKrw,
+      kospiChange: macroContext.kospiChange,
+    },
+  });
+
+  return result;
 }
 
 /**

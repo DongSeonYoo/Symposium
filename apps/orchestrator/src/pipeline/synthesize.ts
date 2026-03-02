@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { PersonaId } from "@symposium/shared-types";
 import { synthesizeVotes, type PersonaRoundResult } from "./debate.js";
+import type { CycleEmitter } from "./emitter.js";
 
 export interface SynthesisResult {
   action: "BUY" | "SELL" | "HOLD";
@@ -27,9 +28,10 @@ export async function synthesize(
     name: string;
     round3: PersonaRoundResult[];
     weights: Record<PersonaId, number>;
+    emitter?: CycleEmitter;
   }
 ): Promise<SynthesisResult> {
-  const { ticker, name, round3, weights } = params;
+  const { ticker, name, round3, weights, emitter } = params;
 
   // 1. 가중합산으로 최종 액션/confidence 확정 (LLM 개입 없음)
   const { action, confidence, weightedScores } = synthesizeVotes({
@@ -87,5 +89,20 @@ ${votesSummary}
     debateSummary = `${name}(${ticker}) — ${action} 판단 (확신도 ${confidence}점). 5인 페르소나 가중합산 결과.`;
   }
 
-  return { action, confidence, debateSummary, personaVotes };
+  const result: SynthesisResult = { action, confidence, debateSummary, personaVotes };
+
+  await emitter?.emit("synthesis:done", {
+    ticker,
+    finalAction: action,
+    finalConfidence: confidence,
+    personaVotes: personaVotes.map((v) => ({
+      persona: v.persona,
+      action: v.action,
+      confidence: v.confidence,
+      weight: v.weight,
+    })),
+    debateSummary: debateSummary.slice(0, 500),
+  });
+
+  return result;
 }

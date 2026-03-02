@@ -11,6 +11,7 @@ import {
   index,
   uniqueIndex,
   check,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -134,5 +135,32 @@ export const apiKeyAuditLogs = pgTable(
   (t) => [
     index("api_key_audit_logs_actor_idx").on(t.actor),
     index("api_key_audit_logs_created_idx").on(t.createdAt),
+  ]
+);
+
+// ── 분석 사이클 (이벤트 스트림 트래킹) ──────────────────────────
+export const analysisCycles = pgTable("analysis_cycles", {
+  id:          uuid("id").primaryKey().defaultRandom(),
+  status:      varchar("status", { length: 20 }).notNull().default("running"),
+  trigger:     varchar("trigger", { length: 20 }).notNull().default("manual"),
+  requestedBy: varchar("requested_by", { length: 100 }),
+  startedAt:   timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  finishedAt:  timestamp("finished_at", { withTimezone: true }),
+  error:       text("error"),
+});
+
+export const analysisEvents = pgTable(
+  "analysis_events",
+  {
+    id:        uuid("id").primaryKey().defaultRandom(),
+    cycleId:   uuid("cycle_id").notNull().references((): AnyPgColumn => analysisCycles.id),
+    seq:       integer("seq").notNull(),
+    eventType: varchar("event_type", { length: 50 }).notNull(),
+    payload:   jsonb("payload").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("analysis_events_cycle_seq_uniq").on(t.cycleId, t.seq),
+    index("analysis_events_cycle_seq_idx").on(t.cycleId, t.seq),
   ]
 );

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { PersonaId } from "@symposium/shared-types";
 import { parseLlmResponse, type ParsedDecision } from "../utils/parse-llm.js";
+import type { CycleEmitter } from "./emitter.js";
 
 const PERSONAS: PersonaId[] = ["buffett", "soros", "dalio", "lynch", "parkhyunju"];
 
@@ -62,8 +63,11 @@ export interface DebateContext {
 /** Round 1: 5 페르소나 독립 판단 (병렬) */
 export async function runRound1(
   client: Anthropic,
-  ctx: DebateContext
+  ctx: DebateContext,
+  emitter?: CycleEmitter
 ): Promise<PersonaRoundResult[]> {
+  await emitter?.emit("round1:start", { ticker: ctx.ticker });
+
   const prompt = `
 종목: ${ctx.ticker} (${ctx.name})
 시장 데이터: ${JSON.stringify(ctx.marketData)}
@@ -88,6 +92,17 @@ ${OUTPUT_SCHEMA}`;
     })
   );
 
+  await emitter?.emit("round1:done", {
+    ticker: ctx.ticker,
+    results: results.map((r) => ({
+      persona: r.persona,
+      action: r.result.action,
+      confidence: r.result.confidence,
+      keyArgument: r.result.keyArgument.slice(0, 500),
+      fallbackUsed: r.result._fallback === true,
+    })),
+  });
+
   return results;
 }
 
@@ -95,8 +110,11 @@ ${OUTPUT_SCHEMA}`;
 export async function runRound2(
   client: Anthropic,
   ctx: DebateContext,
-  round1: PersonaRoundResult[]
+  round1: PersonaRoundResult[],
+  emitter?: CycleEmitter
 ): Promise<PersonaRoundResult[]> {
+  await emitter?.emit("round2:start", { ticker: ctx.ticker });
+
   const results = await Promise.all(
     round1.map(async ({ persona, result: myR1 }) => {
       const othersSummary = round1
@@ -125,6 +143,17 @@ ${OUTPUT_SCHEMA}`;
     })
   );
 
+  await emitter?.emit("round2:done", {
+    ticker: ctx.ticker,
+    results: results.map((r) => ({
+      persona: r.persona,
+      action: r.result.action,
+      confidence: r.result.confidence,
+      keyArgument: r.result.keyArgument.slice(0, 500),
+      fallbackUsed: r.result._fallback === true,
+    })),
+  });
+
   return results;
 }
 
@@ -132,8 +161,10 @@ ${OUTPUT_SCHEMA}`;
 export async function runRound3(
   client: Anthropic,
   ctx: DebateContext,
-  round2: PersonaRoundResult[]
+  round2: PersonaRoundResult[],
+  emitter?: CycleEmitter
 ): Promise<PersonaRoundResult[]> {
+  await emitter?.emit("round3:start", { ticker: ctx.ticker });
   const criticisms = Object.fromEntries(
     round2.map((r) => [r.persona, r.result.keyArgument])
   );
@@ -163,6 +194,17 @@ ${OUTPUT_SCHEMA}`;
       return { persona, result: parseLlmResponse(raw, `${persona}_r3_fail`) };
     })
   );
+
+  await emitter?.emit("round3:done", {
+    ticker: ctx.ticker,
+    results: results.map((r) => ({
+      persona: r.persona,
+      action: r.result.action,
+      confidence: r.result.confidence,
+      keyArgument: r.result.keyArgument.slice(0, 500),
+      fallbackUsed: r.result._fallback === true,
+    })),
+  });
 
   return results;
 }

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServer } from "node:http";
-import { createDbClient } from "@symposium/db";
+import { createDbClient, analysisCycles, eq } from "@symposium/db";
 import { loadApiKeysFromDb } from "./config/load-keys.js";
 import { McpClientManager } from "./mcp/client-manager.js";
 import { ConfirmPoller } from "./pipeline/confirm-poller.js";
@@ -8,6 +8,7 @@ import { executeOrder } from "./pipeline/execute-order.js";
 import { collectMarketData, buildReasons } from "./pipeline/collect.js";
 import { runRound1, runRound2, runRound3 } from "./pipeline/debate.js";
 import { synthesize } from "./pipeline/synthesize.js";
+import { CycleEmitter, createCycle } from "./pipeline/emitter.js";
 import { detectAndUpdateCrisis } from "./crisis/detector.js";
 import { startScheduler, stopScheduler } from "./scheduler.js";
 import type { PersonaId } from "@symposium/shared-types";
@@ -38,7 +39,8 @@ async function loadWeights(
 // ── 정규 분석 사이클 ─────────────────────────────────────────
 async function runAnalysisCycle(
   mcp: McpClientManager,
-  anthropic: Anthropic
+  anthropic: Anthropic,
+  emitter?: CycleEmitter
 ): Promise<void> {
   console.error("[pipeline] analysis cycle start");
 
@@ -49,14 +51,17 @@ async function runAnalysisCycle(
     return;
   }
 
+  await emitter?.emit("cycle:start", { tickers: watchlistRaw.map((w) => w.ticker) });
+
   const weights = await loadWeights(mcp);
 
   for (const item of watchlistRaw) {
     try {
       console.error(`[pipeline] analyzing ${item.ticker} (${item.name})`);
+      await emitter?.emit("ticker:start", { ticker: item.ticker, name: item.name });
 
       // 데이터 수집 (Phase 2: KIS + DART + NEWS MCP 연동)
-      const collected = await collectMarketData(item.ticker, item.name, mcp);
+      const collected = await collectMarketData(item.ticker, item.name, mcp, emitter);
 
       const ctx = {
         ticker: item.ticker,
@@ -69,9 +74,9 @@ async function runAnalysisCycle(
       };
 
       // 3라운드 토론
-      const round1 = await runRound1(anthropic, ctx);
-      const round2 = await runRound2(anthropic, ctx, round1);
-      const round3 = await runRound3(anthropic, ctx, round2);
+      const round1 = await runRound1(anthropic, ctx, emitter);
+      const round2 = await runRound2(anthropic, ctx, round1, emitter);
+      const round3 = await runRound3(anthropic, ctx, round2, emitter);
 
       // 최종 합산
       const synthesis = await synthesize(anthropic, {
@@ -79,10 +84,11 @@ async function runAnalysisCycle(
         name: item.name,
         round3,
         weights,
+        emitter,
       });
 
       // 판단 저장
-      await mcp.callTool("portfolio", "portfolio_save_decision", {
+      const saved = await mcp.callTool("portfolio", "portfolio_save_decision", {
         ticker: item.ticker,
         name: item.name,
         action: synthesis.action,
@@ -95,15 +101,23 @@ async function runAnalysisCycle(
         debateSummary: synthesis.debateSummary,
         macroContext: ctx.macroContext,
         expiresInMinutes: 30,
+      }) as { id?: string };
+
+      await emitter?.emit("decision:saved", {
+        ticker: item.ticker,
+        decisionId: saved?.id ?? null,
+        action: synthesis.action,
       });
 
       console.error(`[pipeline] saved decision: ${synthesis.action}(${synthesis.confidence}) for ${item.ticker}`);
     } catch (err) {
       // 종목별 실패 격리 — 다음 종목 계속 처리
       console.error(`[pipeline] failed for ${item.ticker}:`, err);
+      await emitter?.emit("ticker:error", { ticker: item.ticker, error: String(err) });
     }
   }
 
+  await emitter?.emit("cycle:done", { tickerCount: watchlistRaw.length });
   console.error("[pipeline] analysis cycle done");
 }
 
@@ -170,35 +184,70 @@ async function main(): Promise<void> {
   });
 
   // ── 수동 트리거 HTTP 서버 ─────────────────────────────────
-  // POST /run-now → 분석 사이클 즉시 실행
-  let cycleRunning = false;
+  // POST /run-now → 분석 사이클 즉시 실행 (cycleId 반환)
   const triggerPort = process.env.TRIGGER_PORT ? parseInt(process.env.TRIGGER_PORT) : 3010;
   const httpServer = createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", process.env.NEXT_PUBLIC_APP_URL ?? "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
     if (req.method === "OPTIONS") { res.writeHead(204).end(); return; }
 
     if (req.method === "POST" && req.url === "/run-now") {
-      if (cycleRunning) {
-        res.writeHead(409, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "이미 실행 중입니다" }));
-        return;
-      }
-      res.writeHead(202, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, message: "분석 사이클 시작됨" }));
+      // 비동기로 running 사이클 확인 후 처리
+      void (async () => {
+        try {
+          // running 상태 사이클이 있으면 기존 cycleId 반환
+          const existing = await db
+            .select({ id: analysisCycles.id })
+            .from(analysisCycles)
+            .where(eq(analysisCycles.status, "running"))
+            .limit(1);
 
-      cycleRunning = true;
-      runAnalysisCycle(mcp, anthropic)
-        .catch((err) => console.error("[orchestrator] manual trigger error:", err))
-        .finally(() => { cycleRunning = false; });
+          if (existing[0]) {
+            res.writeHead(202, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true, cycleId: existing[0].id }));
+            return;
+          }
+
+          // 새 사이클 생성
+          const cycleId = await createCycle(db, "manual", "dashboard");
+          const emitter = new CycleEmitter(db, cycleId);
+
+          res.writeHead(202, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, cycleId }));
+
+          runAnalysisCycle(mcp, anthropic, emitter)
+            .then(() => emitter.finish())
+            .catch((err) => {
+              console.error("[orchestrator] manual trigger error:", err);
+              return emitter.finish(String(err));
+            });
+        } catch (err) {
+          console.error("[orchestrator] /run-now error:", err);
+          if (!res.headersSent) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "내부 오류" }));
+          }
+        }
+      })();
       return;
     }
 
     if (req.method === "GET" && req.url === "/status") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ running: cycleRunning }));
+      void (async () => {
+        try {
+          const running = await db
+            .select({ id: analysisCycles.id })
+            .from(analysisCycles)
+            .where(eq(analysisCycles.status, "running"))
+            .limit(1);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ running: running.length > 0, cycleId: running[0]?.id ?? null }));
+        } catch {
+          res.writeHead(500).end();
+        }
+      })();
       return;
     }
 

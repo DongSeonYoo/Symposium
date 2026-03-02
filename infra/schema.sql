@@ -163,6 +163,29 @@ CREATE TABLE IF NOT EXISTS api_key_audit_logs (
 CREATE INDEX IF NOT EXISTS api_key_audit_logs_actor_idx   ON api_key_audit_logs (actor);
 CREATE INDEX IF NOT EXISTS api_key_audit_logs_created_idx ON api_key_audit_logs (created_at DESC);
 
+-- ── 분석 사이클 (이벤트 스트림) ──────────────────────────────
+CREATE TABLE IF NOT EXISTS analysis_cycles (
+  id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  status       VARCHAR(20) NOT NULL DEFAULT 'running',  -- running|done|error
+  trigger      VARCHAR(20) NOT NULL DEFAULT 'manual',   -- manual|cron
+  requested_by VARCHAR(100),
+  started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  finished_at  TIMESTAMPTZ,
+  error        TEXT
+);
+
+CREATE TABLE IF NOT EXISTS analysis_events (
+  id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  cycle_id     UUID        NOT NULL REFERENCES analysis_cycles(id),
+  seq          INTEGER     NOT NULL,
+  event_type   VARCHAR(50) NOT NULL,
+  payload      JSONB       NOT NULL DEFAULT '{}',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (cycle_id, seq)
+);
+
+CREATE INDEX IF NOT EXISTS analysis_events_cycle_seq_idx ON analysis_events(cycle_id, seq);
+
 -- ── 읽기 전용 계정 (Dashboard 전용) ──────────────────────────
 -- 주의: Railway 환경에서는 별도 실행 필요 (슈퍼유저 권한)
 -- psql $DATABASE_URL -c "CREATE ROLE symposium_reader LOGIN PASSWORD 'CHANGE_ME';"

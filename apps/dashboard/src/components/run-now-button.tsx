@@ -1,26 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export function RunNowButton() {
-  const [state, setState] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [state, setState] = useState<"idle" | "running" | "error">("idle");
   const [msg, setMsg] = useState("");
+  const router = useRouter();
 
   async function handleClick() {
     if (state === "running") return;
     setState("running");
     setMsg("");
     try {
-      const url = `${process.env.NEXT_PUBLIC_ORCHESTRATOR_URL ?? "http://localhost:3010"}/run-now`;
-      const res = await fetch(url, { method: "POST" });
-      const data = await res.json() as { ok?: boolean; error?: string; message?: string };
-      if (!res.ok) {
+      const res = await fetch("/api/debate/run-now", { method: "POST" });
+      const data = await res.json() as { ok?: boolean; cycleId?: string; error?: string };
+      if (!res.ok || !data.ok) {
         setState("error");
         setMsg(data.error ?? "실행 실패");
-      } else {
-        setState("done");
-        setMsg(data.message ?? "시작됨");
         setTimeout(() => setState("idle"), 4000);
+      } else if (data.cycleId) {
+        // cycleId를 받아 /debate/live 페이지로 이동
+        router.push(`/debate/live?cycleId=${encodeURIComponent(data.cycleId)}`);
       }
     } catch {
       setState("error");
@@ -30,19 +31,16 @@ export function RunNowButton() {
   }
 
   const label =
-    state === "running" ? "RUNNING..." :
-    state === "done"    ? "STARTED ✓" :
-    state === "error"   ? "ERROR"      : "▶ RUN NOW";
+    state === "running" ? "LAUNCHING..." :
+    state === "error"   ? "ERROR"        : "▶ RUN NOW";
 
   const bg =
     state === "running" ? "rgba(234,179,8,0.15)" :
-    state === "done"    ? "rgba(34,197,94,0.15)"  :
     state === "error"   ? "rgba(239,68,68,0.15)"  : "var(--accent-yellow)";
 
   const color =
     state === "running" ? "var(--accent-yellow)" :
-    state === "done"    ? "var(--accent-green)"   :
-    state === "error"   ? "#ef4444"               : "#000";
+    state === "error"   ? "#ef4444"              : "#000";
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
