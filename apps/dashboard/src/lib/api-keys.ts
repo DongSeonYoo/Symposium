@@ -1,5 +1,5 @@
 import { encrypt, decrypt, maskApiKey } from "@symposium/crypto";
-import { apiKeys, apiKeyAuditLogs, eq } from "@symposium/db";
+import { apiKeys, apiKeyAuditLogs, eq, sql } from "@symposium/db";
 import { getDb } from "./db.js";
 import { getWriterDb } from "./writer-db.js";
 
@@ -87,6 +87,7 @@ export async function setApiKey(
         encryptedValue: encrypted.encryptedValue,
         iv: encrypted.iv,
         authTag: encrypted.authTag,
+        updatedAt: sql`NOW()`,
       },
     });
 
