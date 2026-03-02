@@ -222,7 +222,7 @@ export function DecisionList({ initialData }: { initialData: DecisionRow[] }) {
               </div>
 
               {/* Created */}
-              <div className="mono" style={{ fontSize: "10px", color: "var(--text-muted)" }}>
+              <div suppressHydrationWarning className="mono" style={{ fontSize: "10px", color: "var(--text-muted)" }}>
                 {new Date(r.createdAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" })}
               </div>
 
