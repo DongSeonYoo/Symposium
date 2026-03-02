@@ -60,9 +60,9 @@ export class CycleEmitter {
 
   /**
    * 이벤트를 DB에 저장.
-   * analysis_cycles 행을 FOR UPDATE로 잠근 트랜잭션 안에서
-   * MAX(seq)+1을 계산·삽입 → 동시 emit 간 seq 레이스 완전 방지.
-   * UNIQUE(cycle_id, seq) 제약이 2차 안전망 역할.
+   * MAX(seq)+1을 단일 INSERT-SELECT로 계산 → seq 레이스 방지.
+   * 파이프라인은 순차 emit이므로 트랜잭션 불필요.
+   * UNIQUE(cycle_id, seq) 제약이 안전망 역할.
    */
   async emit(
     eventType: string,
@@ -72,24 +72,18 @@ export class CycleEmitter {
     const cycleId = this.cycleId;
     const jsonPayload = JSON.stringify(safe);
 
-    await this.db.transaction(async (tx) => {
-      // cycle 행 잠금 — 같은 cycle에 대한 동시 emit 직렬화
-      await tx.execute(
-        sql`SELECT id FROM analysis_cycles WHERE id = ${cycleId}::uuid FOR UPDATE`
-      );
-      await tx.execute(sql`
-        INSERT INTO analysis_events (id, cycle_id, seq, event_type, payload)
-        SELECT
-          gen_random_uuid(),
-          ${cycleId}::uuid,
-          COALESCE(
-            (SELECT MAX(seq) FROM analysis_events WHERE cycle_id = ${cycleId}::uuid),
-            0
-          ) + 1,
-          ${eventType},
-          ${jsonPayload}::jsonb
-      `);
-    });
+    await this.db.execute(sql`
+      INSERT INTO analysis_events (id, cycle_id, seq, event_type, payload)
+      SELECT
+        gen_random_uuid(),
+        ${cycleId}::uuid,
+        COALESCE(
+          (SELECT MAX(seq) FROM analysis_events WHERE cycle_id = ${cycleId}::uuid),
+          0
+        ) + 1,
+        ${eventType},
+        ${jsonPayload}::jsonb
+    `);
   }
 
   /** 사이클 완료 또는 에러로 상태 갱신 */
