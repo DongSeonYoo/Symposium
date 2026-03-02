@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "Symposium",
@@ -29,67 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `}</style>
       </head>
       <body style={{ background: "var(--bg-base)", color: "var(--text-primary)", minHeight: "100vh", margin: 0 }}>
-        {/* ── Top bar ── */}
-        <header style={{
-          borderBottom: "1px solid var(--border)",
-          background: "var(--bg-panel)",
-          padding: "0 24px",
-          height: "48px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "32px" }}>
-            <span style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: "13px",
-              fontWeight: 500,
-              letterSpacing: "0.12em",
-              color: "var(--accent-yellow)",
-              textTransform: "uppercase",
-            }}>
-              ◈ SYMPOSIUM
-            </span>
-            <nav style={{ display: "flex", gap: "24px" }}>
-              <a href="/" className="nav-link" style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "11px",
-                fontWeight: 500,
-                letterSpacing: "0.1em",
-                textDecoration: "none",
-                textTransform: "uppercase",
-              }}>
-                DECISIONS
-              </a>
-            </nav>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span className="pulse-dot" style={{
-              width: "6px", height: "6px",
-              borderRadius: "50%",
-              background: "var(--accent-green)",
-              display: "inline-block",
-            }} />
-            <span style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: "10px",
-              letterSpacing: "0.1em",
-              color: "var(--text-secondary)",
-            }}>
-              LIVE
-            </span>
-          </div>
-        </header>
-
-        <Providers>
-          <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "24px" }}>
-            {children}
-          </main>
-        </Providers>
+        {children}
       </body>
     </html>
   );
