@@ -4,7 +4,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createDbClient } from "@symposium/db";
 import { McpClientManager } from "./mcp/client-manager.js";
-import { collectMarketData } from "./pipeline/collect.js";
+import { collectMarketData, buildReasons } from "./pipeline/collect.js";
 import { runRound1, runRound2, runRound3 } from "./pipeline/debate.js";
 import { synthesize } from "./pipeline/synthesize.js";
 import type { PersonaId } from "@symposium/shared-types";
@@ -62,7 +62,7 @@ const saved = await mcp.callTool("portfolio", "portfolio_save_decision", {
   quantity: 0,
   price: 0,
   confidence: synthesis.confidence,
-  reasons: { technical: "", fundamental: "", sentiment: "", macro: "" },
+  reasons: buildReasons(collected),
   risks: [],
   personaVotes: synthesis.personaVotes,
   debateSummary: synthesis.debateSummary,

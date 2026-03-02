@@ -153,3 +153,52 @@ export async function collectMarketData(
     },
   };
 }
+
+/**
+ * CollectedData → reasons 4개 필드 문자열 변환.
+ * portfolio_save_decision의 reasons 파라미터에 직접 사용.
+ */
+export function buildReasons(collected: CollectedData): {
+  technical: string;
+  fundamental: string;
+  sentiment: string;
+  macro: string;
+} {
+  // technical: KIS 시세 기반
+  const m = collected.marketData;
+  const kisTag = collected.sources.kis === "degraded" ? " [degraded]" : "";
+  const technical = collected.sources.kis === "degraded"
+    ? "KIS 시세 수집 실패 — 기술적 데이터 없음"
+    : `현재가 ${m.currentPrice.toLocaleString()}원, 등락률 ${m.changeRate > 0 ? "+" : ""}${m.changeRate}%, 거래량 ${m.volume.toLocaleString()}주, PER ${m.per}, PBR ${m.pbr}${kisTag}`;
+
+  // fundamental: DART 재무제표 + 공시
+  let fundamental: string;
+  if (collected.sources.dart === "degraded") {
+    fundamental = "DART 재무 수집 실패 — 펀더멘털 데이터 없음";
+  } else {
+    const f = collected.fundamental.financial;
+    const disclosureCount = collected.fundamental.disclosures.length;
+    if (!f) {
+      fundamental = `재무제표 없음. 최근 30일 공시 ${disclosureCount}건`;
+    } else {
+      const fmt = (n: number) => (n / 1_000_000_000).toFixed(0) + "억";
+      fundamental = `매출 ${fmt(f.revenue)}, 영업이익 ${fmt(f.operatingProfit)}, 순이익 ${fmt(f.netIncome)}, ROE ${f.roe.toFixed(1)}%, 부채비율 ${f.debtRatio.toFixed(0)}%, EPS ${f.eps.toLocaleString()}원. 최근 30일 공시 ${disclosureCount}건`;
+    }
+  }
+
+  // sentiment: 뉴스 감성
+  let sentiment: string;
+  if (collected.sources.news === "degraded" || !collected.sentiment) {
+    sentiment = "뉴스 감성 수집 실패 — 센티멘트 데이터 없음";
+  } else {
+    const s = collected.sentiment;
+    const scoreStr = s.score > 0 ? `+${s.score.toFixed(2)}` : s.score.toFixed(2);
+    sentiment = `감성 ${s.label}(${scoreStr}), 분석 기사 ${s.articleCount}건. ${s.summary}`;
+  }
+
+  // macro: 거시경제 (현재 하드코딩 — Phase 3: FRED API)
+  const mac = collected.macroContext;
+  const macro = `VIX ${mac.vix}, 미국10Y ${mac.us10yYield}%, DXY ${mac.dxy}, USD/KRW ${mac.usdKrw}, WTI ${mac.wtiCrude}$, KOSPI ${mac.kospiChange > 0 ? "+" : ""}${mac.kospiChange}%`;
+
+  return { technical, fundamental, sentiment, macro };
+}

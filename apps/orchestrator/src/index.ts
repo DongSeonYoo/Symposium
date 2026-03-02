@@ -3,7 +3,7 @@ import { createDbClient } from "@symposium/db";
 import { McpClientManager } from "./mcp/client-manager.js";
 import { ConfirmPoller } from "./pipeline/confirm-poller.js";
 import { executeOrder } from "./pipeline/execute-order.js";
-import { collectMarketData } from "./pipeline/collect.js";
+import { collectMarketData, buildReasons } from "./pipeline/collect.js";
 import { runRound1, runRound2, runRound3 } from "./pipeline/debate.js";
 import { synthesize } from "./pipeline/synthesize.js";
 import { detectAndUpdateCrisis } from "./crisis/detector.js";
@@ -84,10 +84,10 @@ async function runAnalysisCycle(
         ticker: item.ticker,
         name: item.name,
         action: synthesis.action,
-        quantity: 0,        // Phase 1: 수량은 사용자가 confirm 시 수정
+        quantity: 0,
         price: 0,
         confidence: synthesis.confidence,
-        reasons: { technical: "", fundamental: "", sentiment: "", macro: "" },
+        reasons: buildReasons(collected),
         risks: [],
         personaVotes: synthesis.personaVotes,
         debateSummary: synthesis.debateSummary,
