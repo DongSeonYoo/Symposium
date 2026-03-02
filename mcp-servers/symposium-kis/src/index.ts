@@ -11,6 +11,7 @@ import { getBalance } from "./tools/get-balance.js";
 import { getOrders } from "./tools/get-orders.js";
 import { placeOrder } from "./tools/place-order.js";
 import { cancelOrder } from "./tools/cancel-order.js";
+import { getMacro } from "./tools/get-macro.js";
 import type { KisBalance, KisPriceData, KisOhlcv, OrderResult } from "@symposium/shared-types";
 
 // ── 클라이언트 선택 ───────────────────────────────────
@@ -143,6 +144,17 @@ function registerTools(s: McpServer): void {
             confirmed,
           });
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  s.tool("kis_get_macro", "USD/KRW 환율 및 KOSPI 지수 현재가·등락률 조회", {},
+    async () => {
+      if (isMock) {
+        const mockData = { usdKrw: 1330, kospiPrice: 2500, kospiChange: 0.3 };
+        return { content: [{ type: "text", text: JSON.stringify(mockData) }] };
+      }
+      const data = await getMacro(client as KisClient);
+      return { content: [{ type: "text", text: JSON.stringify(data) }] };
     }
   );
 

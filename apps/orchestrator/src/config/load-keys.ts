@@ -9,7 +9,7 @@ interface LoadResult {
 }
 
 const REQUIRED_KEYS = ["ANTHROPIC_API_KEY"] as const;
-const OPTIONAL_KEYS = ["DART_API_KEY", "NEWS_API_KEY"] as const;
+const OPTIONAL_KEYS = ["DART_API_KEY", "NEWS_API_KEY", "FRED_API_KEY"] as const;
 const ALL_KEYS = [...REQUIRED_KEYS, ...OPTIONAL_KEYS] as const;
 
 type ManagedKey = (typeof ALL_KEYS)[number];

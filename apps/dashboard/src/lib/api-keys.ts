@@ -8,6 +8,7 @@ export const ALLOWED_KEY_NAMES = [
   "ANTHROPIC_API_KEY",
   "DART_API_KEY",
   "NEWS_API_KEY",
+  "FRED_API_KEY",
 ] as const;
 
 export type ApiKeyName = (typeof ALLOWED_KEY_NAMES)[number];
@@ -35,6 +36,12 @@ export const API_KEY_DEFINITIONS: Array<{
     required: false,
     label: "News API Key (Serper)",
     hint: "serper.dev에서 발급",
+  },
+  {
+    name: "FRED_API_KEY",
+    required: false,
+    label: "FRED API Key",
+    hint: "fred.stlouisfed.org에서 발급 (VIX, US10Y, DXY, WTI)",
   },
 ];
 

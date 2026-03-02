@@ -6,6 +6,7 @@
 
 import type { McpClientManager } from "../mcp/client-manager.js";
 import type { DartFinancial, DartDisclosure, NewsSentiment } from "@symposium/shared-types";
+import { fetchMacroContext } from "./macro-fetcher.js";
 
 export interface CollectedData {
   ticker: string;
@@ -126,15 +127,8 @@ export async function collectMarketData(
     newsSource = "degraded";
   }
 
-  // ── 4. 거시경제 — Phase 3에서 FRED API 연결 예정, 현재 하드코딩 유지 ──────
-  const macroContext: CollectedData["macroContext"] = {
-    vix: 18,
-    us10yYield: 4.2,
-    dxy: 104.5,
-    usdKrw: 1330,
-    wtiCrude: 75,
-    kospiChange: 0.3,
-  };
+  // ── 4. 거시경제 — FRED API (VIX/US10Y/DXY/WTI) + KIS MCP (USD/KRW, KOSPI) ──
+  const macroContext = await fetchMacroContext(mcp);
 
   return {
     ticker,
@@ -196,7 +190,7 @@ export function buildReasons(collected: CollectedData): {
     sentiment = `감성 ${s.label}(${scoreStr}), 분석 기사 ${s.articleCount}건. ${s.summary}`;
   }
 
-  // macro: 거시경제 (현재 하드코딩 — Phase 3: FRED API)
+  // macro: 거시경제 (FRED API + KIS MCP)
   const mac = collected.macroContext;
   const macro = `VIX ${mac.vix}, 미국10Y ${mac.us10yYield}%, DXY ${mac.dxy}, USD/KRW ${mac.usdKrw}, WTI ${mac.wtiCrude}$, KOSPI ${mac.kospiChange > 0 ? "+" : ""}${mac.kospiChange}%`;
 
