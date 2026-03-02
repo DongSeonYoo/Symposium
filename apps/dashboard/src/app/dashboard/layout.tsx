@@ -40,6 +40,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             }}>
               DECISIONS
             </Link>
+            <Link href="/settings/api-keys" className="nav-link" style={{
+              fontFamily: "'DM Mono', monospace",
+              fontSize: "11px",
+              fontWeight: 500,
+              letterSpacing: "0.1em",
+              textDecoration: "none",
+              textTransform: "uppercase",
+            }}>
+              API KEYS
+            </Link>
           </nav>
         </div>
 
