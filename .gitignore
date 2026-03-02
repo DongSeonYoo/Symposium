@@ -6,6 +6,7 @@ dist/
 .next/
 .turbo/
 *.log
+*.tsbuildinfo
 .DS_Store
 .git/
 .claude/
