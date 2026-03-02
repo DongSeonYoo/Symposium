@@ -189,10 +189,12 @@ const port = process.env.PORT ? parseInt(process.env.PORT) : undefined;
 
 if (port) {
   // HTTP 모드 (orchestrator 연동, Railway 배포)
+  // stateless: transport 하나를 서버 생명주기 동안 재사용
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+  await server.connect(transport);
+
   const httpServer = createServer(async (req, res) => {
     if (req.url === "/mcp") {
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-      await server.connect(transport);
       await transport.handleRequest(req, res);
     } else {
       res.writeHead(404).end();
