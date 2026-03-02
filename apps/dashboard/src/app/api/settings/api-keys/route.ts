@@ -18,11 +18,18 @@ function verifyRequest(req: NextRequest): NextResponse | null {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 2. CSRF: Origin/Referer이 앱 URL과 일치하는지 확인 (Same-Site 보완)
+  // 2. CSRF: Origin이 앱 URL과 정확히 일치하는지 확인 (startsWith 우회 방지)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (appUrl) {
-    const origin = req.headers.get("origin") ?? req.headers.get("referer") ?? "";
-    if (!origin.startsWith(appUrl)) {
+    const rawOrigin = req.headers.get("origin") ?? req.headers.get("referer") ?? "";
+    try {
+      const requestOrigin = new URL(rawOrigin).origin;
+      const allowedOrigin = new URL(appUrl).origin;
+      if (requestOrigin !== allowedOrigin) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } catch {
+      // URL 파싱 실패 = 유효하지 않은 origin → 거부
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
@@ -30,9 +37,10 @@ function verifyRequest(req: NextRequest): NextResponse | null {
   return null; // 검증 통과
 }
 
-function getActor(req: NextRequest): string {
-  // sym_session 쿠키 값을 actor로 사용 (단순 식별용)
-  return req.cookies.get("sym_session")?.value ?? "unknown";
+function getActor(_req: NextRequest): string {
+  // 현재 단일 사용자 인증 구조 — 세션 토큰 원문은 절대 저장 금지
+  // 추후 다중 사용자 지원 시 세션에서 user_id를 파싱해 반환
+  return "dashboard_user";
 }
 
 // key_name 화이트리스트 Zod schema
