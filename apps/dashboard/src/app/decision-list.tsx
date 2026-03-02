@@ -116,7 +116,7 @@ export function DecisionList({ initialData }: { initialData: DecisionRow[] }) {
               background: "var(--accent-blue)", display: "inline-block",
             }} />
           )}
-          <span style={{
+          <span suppressHydrationWarning style={{
             fontFamily: "'DM Mono', monospace",
             fontSize: "10px",
             color: "var(--text-muted)",
