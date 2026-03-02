@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServer } from "node:http";
-import { createDbClient, analysisCycles, eq } from "@symposium/db";
+import { createDbClient, analysisCycles, eq, sql } from "@symposium/db";
 import { loadApiKeysFromDb } from "./config/load-keys.js";
 import { McpClientManager } from "./mcp/client-manager.js";
 import { ConfirmPoller } from "./pipeline/confirm-poller.js";
@@ -139,9 +139,31 @@ async function runCrisisCheck(
   }
 }
 
+// ── 시작 시 좀비 사이클 정리 ─────────────────────────────────
+// orchestrator 크래시로 status=running인 채 남겨진 사이클을 error로 전환
+async function cleanupZombieCycles(
+  db: ReturnType<typeof createDbClient>
+): Promise<void> {
+  const result = await db
+    .update(analysisCycles)
+    .set({
+      status: "error",
+      finishedAt: sql`NOW()`,
+      error: "orchestrator restarted — cycle was interrupted",
+    })
+    .where(eq(analysisCycles.status, "running"));
+  const count = Array.isArray(result) ? result.length : 0;
+  if (count > 0) {
+    console.error(`[orchestrator] zombie cycle(s) cleaned up on startup: ${count}`);
+  }
+}
+
 // ── 진입점 ───────────────────────────────────────────────────
 async function main(): Promise<void> {
   const db = createDbClient({ max: 10 });
+
+  // 이전 실행에서 중단된 좀비 사이클 정리
+  await cleanupZombieCycles(db);
 
   // DB에서 API 키 로드 → process.env 주입 (ANTHROPIC 실패 시 즉시 exit)
   await loadApiKeysFromDb(db);
