@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.0",
+    "@symposium/crypto": "workspace:*",
+    "@symposium/db": "workspace:*",
     "@symposium/shared-types": "workspace:*",
     "zod": "^3.24.2"
   },

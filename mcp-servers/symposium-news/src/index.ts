@@ -4,10 +4,39 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { decrypt } from "@symposium/crypto";
+import { createDbClient, apiKeys, eq } from "@symposium/db";
 import { NewsClient } from "./news-client.js";
 import { searchNews } from "./tools/search-news.js";
 import { getSentiment } from "./tools/get-sentiment.js";
 import type { NewsSentiment } from "@symposium/shared-types";
+
+// ── 기동 시 DB에서 NEWS_API_KEY 로드 (process.env 우선) ────────
+async function loadNewsKeyFromDb(): Promise<void> {
+  if (process.env.NEWS_API_KEY) return; // 환경변수 우선
+  const secret = process.env.ENCRYPTION_SECRET;
+  const dbUrl = process.env.DATABASE_URL;
+  if (!secret || !dbUrl) return; // ENCRYPTION_SECRET/DB 없으면 mock으로 동작
+
+  try {
+    const db = createDbClient({ max: 1 });
+    const row = await db.query.apiKeys.findFirst({
+      where: eq(apiKeys.keyName, "NEWS_API_KEY"),
+    });
+    if (row) {
+      process.env.NEWS_API_KEY = decrypt(
+        { encryptedValue: row.encryptedValue, iv: row.iv, authTag: row.authTag },
+        secret
+      );
+      console.error("[symposium-news] NEWS_API_KEY loaded from DB");
+    }
+  } catch {
+    // 실패 시 경고 + mock mode degrade
+    console.error("[symposium-news] WARN: DB key load failed — mock mode will be used");
+  }
+}
+
+await loadNewsKeyFromDb();
 
 // ── 클라이언트 선택 ───────────────────────────────────
 const isMock = !process.env.NEWS_API_KEY;

@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createDbClient } from "@symposium/db";
+import { loadApiKeysFromDb } from "./config/load-keys.js";
 import { McpClientManager } from "./mcp/client-manager.js";
 import { ConfirmPoller } from "./pipeline/confirm-poller.js";
 import { executeOrder } from "./pipeline/execute-order.js";
@@ -125,9 +126,13 @@ async function runCrisisCheck(
 
 // ── 진입점 ───────────────────────────────────────────────────
 async function main(): Promise<void> {
-  validateEnv();
-
   const db = createDbClient({ max: 10 });
+
+  // DB에서 API 키 로드 → process.env 주입 (ANTHROPIC 실패 시 즉시 exit)
+  await loadApiKeysFromDb(db);
+
+  // DB 주입 후 필수 환경변수 검증
+  validateEnv();
   const mcp = new McpClientManager();
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 

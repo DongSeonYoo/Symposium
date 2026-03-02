@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.0",
+    "@symposium/crypto": "workspace:*",
     "@symposium/db": "workspace:*",
     "@symposium/shared-types": "workspace:*",
     "@tanstack/react-query": "^5.80.7",

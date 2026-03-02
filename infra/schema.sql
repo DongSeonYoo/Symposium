@@ -127,6 +127,42 @@ CREATE TABLE IF NOT EXISTS decision_events (
 CREATE INDEX IF NOT EXISTS decision_events_decision_idx ON decision_events (decision_id);
 CREATE INDEX IF NOT EXISTS decision_events_created_idx  ON decision_events (created_at DESC);
 
+-- ── API 키 (AES-256-GCM 암호화 저장) ─────────────────────────
+CREATE TABLE IF NOT EXISTS api_keys (
+  key_name        VARCHAR(50)  PRIMARY KEY,
+  encrypted_value TEXT         NOT NULL,
+  iv              VARCHAR(32)  NOT NULL,   -- base64 encoded 12-byte GCM IV
+  auth_tag        VARCHAR(32)  NOT NULL,   -- base64 encoded 16-byte GCM AuthTag
+  created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+-- updated_at 자동 갱신 트리거
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS api_keys_updated_at ON api_keys;
+CREATE TRIGGER api_keys_updated_at
+  BEFORE UPDATE ON api_keys
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ── API 키 감사 로그 (값 저장 금지, 이벤트만 기록) ──────────────
+CREATE TABLE IF NOT EXISTS api_key_audit_logs (
+  id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  actor       VARCHAR(100) NOT NULL,   -- 사용자 id 또는 "system"
+  action      VARCHAR(10)  NOT NULL CHECK (action IN ('set', 'delete')),
+  key_name    VARCHAR(50)  NOT NULL,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS api_key_audit_logs_actor_idx   ON api_key_audit_logs (actor);
+CREATE INDEX IF NOT EXISTS api_key_audit_logs_created_idx ON api_key_audit_logs (created_at DESC);
+
 -- ── 읽기 전용 계정 (Dashboard 전용) ──────────────────────────
 -- 주의: Railway 환경에서는 별도 실행 필요 (슈퍼유저 권한)
 -- psql $DATABASE_URL -c "CREATE ROLE symposium_reader LOGIN PASSWORD 'CHANGE_ME';"

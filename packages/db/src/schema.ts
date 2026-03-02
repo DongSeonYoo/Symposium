@@ -110,3 +110,29 @@ export const systemState = pgTable("system_state", {
   value: jsonb("value").notNull().default({}),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ── API 키 (AES-256-GCM 암호화 저장) ─────────────────────────
+export const apiKeys = pgTable("api_keys", {
+  keyName:        varchar("key_name", { length: 50 }).primaryKey(),
+  encryptedValue: text("encrypted_value").notNull(),
+  iv:             varchar("iv", { length: 32 }).notNull(),      // base64 12 bytes → max 16 chars, 여유 32
+  authTag:        varchar("auth_tag", { length: 32 }).notNull(), // base64 16 bytes → max 24 chars, 여유 32
+  createdAt:      timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:      timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── API 키 감사 로그 (값 저장 금지, 이벤트만 기록) ──────────────
+export const apiKeyAuditLogs = pgTable(
+  "api_key_audit_logs",
+  {
+    id:        uuid("id").primaryKey().defaultRandom(),
+    actor:     varchar("actor", { length: 100 }).notNull(), // 사용자 id 또는 "system"
+    action:    varchar("action", { length: 10 }).notNull(), // "set" | "delete"
+    keyName:   varchar("key_name", { length: 50 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("api_key_audit_logs_actor_idx").on(t.actor),
+    index("api_key_audit_logs_created_idx").on(t.createdAt),
+  ]
+);

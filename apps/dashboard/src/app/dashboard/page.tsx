@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { getDb } from "@/lib/db";
 import { decisions, holdings, desc } from "@symposium/db";
 import { DecisionList } from "../decision-list";
+import { ApiKeyWarning } from "@/components/api-key-warning";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +45,9 @@ export default async function DashboardPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
+      <Suspense fallback={null}>
+        <ApiKeyWarning />
+      </Suspense>
       <DecisionList initialData={serialized} />
 
       {holdingRows.length > 0 && (
