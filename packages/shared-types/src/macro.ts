@@ -1,5 +1,22 @@
 // 거시경제 컨텍스트 — 모든 페르소나에게 공통 주입
 
+export interface NewsItem {
+  title: string;
+  source: string;
+  publishedAt: string; // ISO8601
+  url: string;
+  snippet: string;
+}
+
+export interface NewsSentiment {
+  ticker: string;
+  score: number;        // -1.0 ~ 1.0 (negative ~ positive)
+  label: "positive" | "neutral" | "negative";
+  articleCount: number;
+  summary: string;      // 감성 요약 한 줄
+  items: NewsItem[];    // 분석에 사용된 기사 목록
+}
+
 export interface MacroContext {
   vix: number;                  // 공포탐욕지수
   us10yYield: number;           // 미국채 10년물 금리 (%)

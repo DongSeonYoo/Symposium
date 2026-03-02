@@ -21,11 +21,16 @@ function validateEnv(): void {
 
 // ── 페르소나 가중치 로드 — portfolio MCP 경유 ────────────────
 // 가중치는 portfolio MCP의 persona_weights 테이블이 source of truth
-// Phase 1: portfolio MCP에 가중치 tool이 없으므로 기본값 사용 (Phase 2에서 tool 추가 예정)
 async function loadWeights(
-  _mcp: McpClientManager
+  mcp: McpClientManager
 ): Promise<Record<PersonaId, number>> {
-  return { buffett: 0.2, soros: 0.2, dalio: 0.2, lynch: 0.2, parkhyunju: 0.2 };
+  try {
+    const weightsRaw = await mcp.callTool("portfolio", "portfolio_get_weights", {}) as Record<string, number>;
+    return { buffett: 0.2, soros: 0.2, dalio: 0.2, lynch: 0.2, parkhyunju: 0.2, ...weightsRaw };
+  } catch (err) {
+    console.error("[orchestrator] portfolio_get_weights 실패, 기본값 사용:", err);
+    return { buffett: 0.2, soros: 0.2, dalio: 0.2, lynch: 0.2, parkhyunju: 0.2 };
+  }
 }
 
 // ── 정규 분석 사이클 ─────────────────────────────────────────
@@ -48,14 +53,16 @@ async function runAnalysisCycle(
     try {
       console.error(`[pipeline] analyzing ${item.ticker} (${item.name})`);
 
-      // 데이터 수집 (Phase 1: stub)
-      const collected = await collectMarketData(item.ticker, item.name);
+      // 데이터 수집 (Phase 2: KIS + DART + NEWS MCP 연동)
+      const collected = await collectMarketData(item.ticker, item.name, mcp);
 
       const ctx = {
         ticker: item.ticker,
         name: item.name,
         marketData: collected.marketData as Record<string, unknown>,
         macroContext: collected.macroContext as Record<string, unknown>,
+        fundamental: collected.fundamental as Record<string, unknown>,
+        sentiment: collected.sentiment as Record<string, unknown> | null,
         weights,
       };
 

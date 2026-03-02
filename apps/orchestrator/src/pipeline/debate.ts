@@ -30,6 +30,8 @@ export interface DebateContext {
   name: string;
   marketData: Record<string, unknown>;
   macroContext: Record<string, unknown>;
+  fundamental: Record<string, unknown>;  // 추가: DART 재무/공시 데이터
+  sentiment: Record<string, unknown> | null;  // 추가: 뉴스 감성 분석
   weights: Record<PersonaId, number>;
 }
 
@@ -42,6 +44,8 @@ export async function runRound1(
 종목: ${ctx.ticker} (${ctx.name})
 시장 데이터: ${JSON.stringify(ctx.marketData)}
 거시경제: ${JSON.stringify(ctx.macroContext)}
+재무 데이터: ${JSON.stringify(ctx.fundamental)}
+뉴스 감성: ${JSON.stringify(ctx.sentiment)}
 
 위 데이터를 바탕으로 매매 판단을 내리십시오.
 ${OUTPUT_SCHEMA}`;

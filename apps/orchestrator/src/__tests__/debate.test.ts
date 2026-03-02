@@ -10,6 +10,8 @@ const ctx: DebateContext = {
   name: "삼성전자",
   marketData: { currentPrice: 70000, per: 15 },
   macroContext: { vix: 18, usdKrw: 1330 },
+  fundamental: { financial: null, disclosures: [] },
+  sentiment: null,
   weights: { buffett: 0.2, soros: 0.2, dalio: 0.2, lynch: 0.2, parkhyunju: 0.2 },
 };
 

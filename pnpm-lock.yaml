@@ -110,7 +110,51 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@25.3.3)(lightningcss@1.31.1)
 
+  mcp-servers/symposium-dart:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.13.0
+        version: 1.27.1(zod@3.25.76)
+      '@symposium/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^25.3.3
+        version: 25.3.3
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
   mcp-servers/symposium-kis:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.13.0
+        version: 1.27.1(zod@3.25.76)
+      '@symposium/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^25.3.3
+        version: 25.3.3
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  mcp-servers/symposium-news:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.13.0

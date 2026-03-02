@@ -187,13 +187,21 @@ export async function executeOrder(
     return;
   }
 
-  // 5. executed 전이 — portfolio MCP 경유 (상태 전이 규칙 중앙 강제)
+  // 5. executed 전이
+  // orderResult에서 pnl 명시 추출 — KIS mock은 pnl 없음, 실제 KIS도 체결 즉시 pnl 미제공
+  // KIS 체결 결과: { orderId, ticker, side, quantity, price, status, executedAt }
+  // pnl은 체결 후 별도 조회 필요 (kis_get_orders → pnl 필드) — Phase 2.5 과제
+  // 현재: pnl 없으면 null 저장 (fail-open 유지하되 null로 명시화)
+  const pnl = typeof orderResult["pnl"] === "number" ? orderResult["pnl"] : null;
+  const enrichedOrderResult = { ...orderResult, pnl };  // null로 명시화
+
+  // portfolio MCP 경유 (상태 전이 규칙 중앙 강제)
   await mcp.callTool("portfolio", "portfolio_update_decision", {
     id: decisionId,
     status: "executed",
     actor: "orchestrator",
     reason: `주문 체결: ${orderResult["orderId"] ?? ""}`,
-    orderResult,
+    orderResult: enrichedOrderResult,
   });
   console.error(`[execute-order] executed: ${decisionId}`);
 }

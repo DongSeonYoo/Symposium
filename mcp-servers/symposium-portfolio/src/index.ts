@@ -11,6 +11,7 @@ import { getDecisionsSchema, getDecisions } from "./tools/get-decisions.js";
 import { updateDecisionSchema, updateDecision } from "./tools/update-decision.js";
 import { getWatchlist } from "./tools/get-watchlist.js";
 import { updateWatchlistSchema, updateWatchlist } from "./tools/update-watchlist.js";
+import { getWeights } from "./tools/get-weights.js";
 
 const db = createDbClient({ max: 5 });
 
@@ -41,6 +42,11 @@ function registerTools(s: McpServer): void {
 
   s.tool("portfolio_get_watchlist", "현재 감시 종목 전체 조회", {}, async () => {
     const result = await getWatchlist(db);
+    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+  });
+
+  s.tool("portfolio_get_weights", "페르소나 가중치 조회 (기본값: 각 0.2)", {}, async () => {
+    const result = await getWeights(db);
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   });
 
