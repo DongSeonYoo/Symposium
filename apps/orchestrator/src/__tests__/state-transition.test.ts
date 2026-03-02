@@ -1,28 +1,28 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 
 /**
- * 상태 전이 규칙 테스트 (orchestrator 레벨).
- * portfolio MCP의 updateDecision 로직을 직접 import해서 검증.
- * 충돌/충돌 케이스가 시스템 사고로 이어지지 않음을 보장.
+ * 상태 전이 규칙 테스트 — actor × status 매트릭스 기반.
+ * portfolio MCP update-decision.ts의 ACTOR_TRANSITIONS와 동일한 규칙.
  */
 
-// updateDecision 핵심 로직을 orchestrator 레벨에서 직접 테스트하기 위해
-// 동일한 규칙을 로컬에서 재현. (실제 DB 없이 순수 규칙만 검증)
-
 type Status = "pending" | "confirmed" | "rejected" | "expired" | "executed";
+type Actor = "dashboard" | "orchestrator" | "system";
 
-const ALLOWED_TRANSITIONS: Record<Status, Status[]> = {
-  pending: ["confirmed", "rejected", "expired"],
-  confirmed: ["executed"],
-  rejected: [],
-  expired: [],
-  executed: [],
+// update-decision.ts의 ACTOR_TRANSITIONS와 동일
+const ACTOR_TRANSITIONS: Record<Actor, Partial<Record<Status, Status[]>>> = {
+  dashboard:    { pending:   ["confirmed", "rejected"] },
+  orchestrator: { confirmed: ["executed", "rejected"] },
+  system:       { pending:   ["expired"] },
 };
 
-function validateTransition(from: Status, to: Status): { ok: boolean; error?: string } {
-  const allowed = ALLOWED_TRANSITIONS[from] ?? [];
+function validateTransition(
+  actor: Actor,
+  from: Status,
+  to: Status
+): { ok: boolean; error?: string } {
+  const allowed = ACTOR_TRANSITIONS[actor]?.[from] ?? [];
   if (!allowed.includes(to)) {
-    return { ok: false, error: `Invalid: ${from} → ${to}` };
+    return { ok: false, error: `Forbidden: ${actor} cannot move ${from} → ${to}` };
   }
   return { ok: true };
 }
@@ -34,79 +34,102 @@ function validateConfirmNotExpired(expiresAt: Date, now: Date): { ok: boolean; e
   return { ok: true };
 }
 
-describe("상태 전이 규칙", () => {
-  // ── 허용 케이스 ─────────────────────────────────────────────
+// ── dashboard 허용 케이스 ─────────────────────────────────────
+describe("dashboard 전이", () => {
   it("pending → confirmed 허용", () => {
-    expect(validateTransition("pending", "confirmed").ok).toBe(true);
+    expect(validateTransition("dashboard", "pending", "confirmed").ok).toBe(true);
   });
 
   it("pending → rejected 허용", () => {
-    expect(validateTransition("pending", "rejected").ok).toBe(true);
+    expect(validateTransition("dashboard", "pending", "rejected").ok).toBe(true);
   });
 
-  it("pending → expired 허용 (시스템 자동)", () => {
-    expect(validateTransition("pending", "expired").ok).toBe(true);
+  it("confirmed → executed 금지 (dashboard 불가)", () => {
+    expect(validateTransition("dashboard", "confirmed", "executed").ok).toBe(false);
   });
 
+  it("confirmed → rejected 금지 (dashboard 불가)", () => {
+    expect(validateTransition("dashboard", "confirmed", "rejected").ok).toBe(false);
+  });
+
+  it("pending → expired 금지 (dashboard 불가)", () => {
+    expect(validateTransition("dashboard", "pending", "expired").ok).toBe(false);
+  });
+});
+
+// ── orchestrator 허용 케이스 ─────────────────────────────────
+describe("orchestrator 전이", () => {
   it("confirmed → executed 허용", () => {
-    expect(validateTransition("confirmed", "executed").ok).toBe(true);
+    expect(validateTransition("orchestrator", "confirmed", "executed").ok).toBe(true);
   });
 
-  // ── 충돌/금지 케이스 ─────────────────────────────────────────
-  it("pending → executed 직접 전이 금지", () => {
-    const r = validateTransition("pending", "executed");
-    expect(r.ok).toBe(false);
-    expect(r.error).toContain("pending → executed");
+  it("confirmed → rejected 허용 (주문 실패 경로)", () => {
+    expect(validateTransition("orchestrator", "confirmed", "rejected").ok).toBe(true);
   });
 
-  it("confirmed → pending 역전이 금지", () => {
-    expect(validateTransition("confirmed", "pending").ok).toBe(false);
+  it("pending → confirmed 금지 (orchestrator 불가)", () => {
+    expect(validateTransition("orchestrator", "pending", "confirmed").ok).toBe(false);
   });
 
-  it("rejected → confirmed 전이 금지 (거부 후 승인 불가)", () => {
-    expect(validateTransition("rejected", "confirmed").ok).toBe(false);
-  });
-
-  it("expired → confirmed 전이 금지 (만료 후 승인 불가)", () => {
-    expect(validateTransition("expired", "confirmed").ok).toBe(false);
+  it("pending → rejected 금지 (orchestrator 불가)", () => {
+    expect(validateTransition("orchestrator", "pending", "rejected").ok).toBe(false);
   });
 
   it("executed → 어떤 상태로도 전이 금지 (최종 상태)", () => {
     const targets: Status[] = ["pending", "confirmed", "rejected", "expired"];
     for (const to of targets) {
-      expect(validateTransition("executed", to).ok).toBe(false);
+      expect(validateTransition("orchestrator", "executed", to).ok).toBe(false);
     }
   });
+});
 
-  // ── 만료 시간 충돌 케이스 ─────────────────────────────────────
-  it("expiresAt 이전에 confirm → 허용", () => {
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10분 후
-    const now = new Date();
-    expect(validateConfirmNotExpired(expiresAt, now).ok).toBe(true);
+// ── system 허용 케이스 ────────────────────────────────────────
+describe("system 전이", () => {
+  it("pending → expired 허용 (자동 만료)", () => {
+    expect(validateTransition("system", "pending", "expired").ok).toBe(true);
   });
 
-  it("expiresAt 이후에 confirm 시도 → 거부", () => {
-    const expiresAt = new Date(Date.now() - 1000); // 1초 전 만료
-    const now = new Date();
-    const r = validateConfirmNotExpired(expiresAt, now);
+  it("confirmed → expired 금지 (system 불가)", () => {
+    expect(validateTransition("system", "confirmed", "expired").ok).toBe(false);
+  });
+
+  it("expired → confirmed 금지 (만료 후 승인 불가)", () => {
+    expect(validateTransition("system", "expired", "confirmed").ok).toBe(false);
+  });
+});
+
+// ── 만료 시간 검증 ────────────────────────────────────────────
+describe("만료 시간 검증", () => {
+  it("expiresAt 이전 confirm → 허용", () => {
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    expect(validateConfirmNotExpired(expiresAt, new Date()).ok).toBe(true);
+  });
+
+  it("expiresAt 이후 confirm 시도 → 거부", () => {
+    const expiresAt = new Date(Date.now() - 1000);
+    const r = validateConfirmNotExpired(expiresAt, new Date());
     expect(r.ok).toBe(false);
     expect(r.error).toContain("expired");
   });
+});
 
-  // ── 연속 전이 시나리오 ────────────────────────────────────────
-  it("정상 플로우: pending → confirmed → executed", () => {
-    expect(validateTransition("pending", "confirmed").ok).toBe(true);
-    expect(validateTransition("confirmed", "executed").ok).toBe(true);
+// ── 정상/비정상 플로우 시나리오 ──────────────────────────────
+describe("플로우 시나리오", () => {
+  it("정상: dashboard confirm → orchestrator execute", () => {
+    expect(validateTransition("dashboard", "pending", "confirmed").ok).toBe(true);
+    expect(validateTransition("orchestrator", "confirmed", "executed").ok).toBe(true);
   });
 
-  it("거부 플로우: pending → rejected (이후 전이 없음)", () => {
-    expect(validateTransition("pending", "rejected").ok).toBe(true);
-    // rejected에서 더 이상 전이 불가
-    expect(validateTransition("rejected", "executed").ok).toBe(false);
+  it("거부: dashboard reject", () => {
+    expect(validateTransition("dashboard", "pending", "rejected").ok).toBe(true);
   });
 
-  it("만료 플로우: pending → expired (이후 전이 없음)", () => {
-    expect(validateTransition("pending", "expired").ok).toBe(true);
-    expect(validateTransition("expired", "executed").ok).toBe(false);
+  it("주문실패: dashboard confirm → orchestrator reject", () => {
+    expect(validateTransition("dashboard", "pending", "confirmed").ok).toBe(true);
+    expect(validateTransition("orchestrator", "confirmed", "rejected").ok).toBe(true);
+  });
+
+  it("만료: system expire", () => {
+    expect(validateTransition("system", "pending", "expired").ok).toBe(true);
   });
 });

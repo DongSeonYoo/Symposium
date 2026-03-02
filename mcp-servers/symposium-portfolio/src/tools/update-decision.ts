@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type DbClient, decisions, decisionEvents, eq, and, sql } from "@symposium/db";
+import { type DbClient, decisions, decisionEvents, eq, and } from "@symposium/db";
 
 export const updateDecisionSchema = z.object({
   id: z.string().uuid(),
@@ -11,10 +11,14 @@ export const updateDecisionSchema = z.object({
 
 export type UpdateDecisionInput = z.infer<typeof updateDecisionSchema>;
 
-// 허용된 상태 전이 규칙
-const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  pending: ["confirmed", "rejected", "expired"],
-  confirmed: ["executed"],
+// actor별 허용 전이 규칙 (상태 × actor 매트릭스)
+// dashboard    : 사용자 Confirm/Reject — pending 단계에서만
+// orchestrator : 주문 실행/실패 — confirmed 단계에서만
+// system       : 자동 만료 — pending 단계에서만
+const ACTOR_TRANSITIONS: Record<string, Record<string, string[]>> = {
+  dashboard:    { pending:   ["confirmed", "rejected"] },
+  orchestrator: { confirmed: ["executed", "rejected"] },
+  system:       { pending:   ["expired"] },
 };
 
 export async function updateDecision(db: DbClient, input: UpdateDecisionInput) {
@@ -28,11 +32,11 @@ export async function updateDecision(db: DbClient, input: UpdateDecisionInput) {
     throw new Error(`Decision not found: ${input.id}`);
   }
 
-  // 상태 전이 규칙 검증
-  const allowed = ALLOWED_TRANSITIONS[current.status] ?? [];
+  // actor별 허용 전이 검증
+  const allowed = ACTOR_TRANSITIONS[input.actor]?.[current.status] ?? [];
   if (!allowed.includes(input.status)) {
     throw new Error(
-      `Invalid transition: ${current.status} → ${input.status}`
+      `Forbidden transition: ${input.actor} cannot move ${current.status} → ${input.status}`
     );
   }
 

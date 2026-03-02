@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS system_state (
 
 -- 위기모드 초기값 삽입
 INSERT INTO system_state (key, value) VALUES
-  ('crisis_mode', '{"active": false, "triggers": [], "activated_at": null, "cooldown_until": null}')
+  ('crisis_mode', '{"active": false, "triggers": [], "activatedAt": null, "cooldownUntil": null}')
 ON CONFLICT (key) DO NOTHING;
 
 -- ── 판단 상태 전이 감사 로그 ──────────────────────────────────
