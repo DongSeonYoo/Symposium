@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -39,7 +39,7 @@ function formatElapsed(startMs: number): string {
 
 // ── 컴포넌트 ─────────────────────────────────────────────────
 
-export default function DebateLivePage() {
+function DebateLiveInner() {
   const searchParams = useSearchParams();
   const cycleId = searchParams.get("cycleId") ?? "";
 
@@ -660,5 +660,30 @@ function EventRow({ ev }: { ev: StreamEvent }) {
         </pre>
       )}
     </div>
+  );
+}
+
+// ── default export — useSearchParams를 Suspense로 래핑 ────────
+export default function DebateLivePage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "'DM Mono', monospace",
+            fontSize: "12px",
+            color: "var(--text-muted)",
+          }}
+        >
+          로딩 중...
+        </div>
+      }
+    >
+      <DebateLiveInner />
+    </Suspense>
   );
 }
