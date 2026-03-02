@@ -3,6 +3,7 @@
 @layer base {
   :root {
     --bg-base:       #0b0d10;
+    --bg:            #0b0d10;   /* alias for --bg-base */
     --bg-panel:      #101318;
     --bg-panel-alt:  #14171e;
     --bg-elevated:   #1b1f28;
