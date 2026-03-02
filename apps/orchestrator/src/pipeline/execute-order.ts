@@ -15,7 +15,7 @@ export type OrderGuard =
 // ── 안전장치 1: KIS_MODE 확인 ────────────────────────────────
 export function checkKisMode(): OrderGuard {
   const mode = process.env.KIS_MODE;
-  if (mode !== "paper" && mode !== "live") {
+  if (mode !== "paper" && mode !== "live" && mode !== "mock") {
     return { ok: false, reason: `KIS_MODE 환경변수 미설정 또는 invalid: "${mode}"` };
   }
   return { ok: true };

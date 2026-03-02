@@ -8,6 +8,25 @@ interface KisToken {
 const PAPER_BASE = "https://openapivts.koreainvestment.com:29443";
 const LIVE_BASE  = "https://openapi.koreainvestment.com:9443";
 
+// ── Mock 클라이언트 ────────────────────────────────────
+// KIS_MODE=mock 시 실제 API 호출 없이 더미 데이터 반환.
+// 각 tool 함수가 KisClient 타입으로 받으므로 같은 인터페이스를 구현.
+export class KisMockClient {
+  readonly mode = "paper" as const;
+  readonly account = "50000000-01";
+
+  async get<T>(_path: string, _params: Record<string, string>, _trId: string): Promise<T> {
+    // mock: tool 함수 내부에서 get/post를 직접 호출하는 경우 대비
+    // 실제로는 각 tool이 mock 응답을 직접 만들기 때문에 여기까지 오지 않음
+    throw new Error("[KIS Mock] get() called directly — should not happen");
+  }
+
+  async post<T>(_path: string, _body: Record<string, unknown>, _trId: string): Promise<T> {
+    throw new Error("[KIS Mock] post() called directly — should not happen");
+  }
+}
+
+// ── 실제 클라이언트 ────────────────────────────────────
 export class KisClient {
   private readonly baseUrl: string;
   private readonly appKey: string;
