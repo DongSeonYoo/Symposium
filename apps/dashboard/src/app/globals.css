@@ -2,16 +2,16 @@
 
 @layer base {
   :root {
-    --bg-base:       #0d0f13;
-    --bg-panel:      #131720;
-    --bg-panel-alt:  #181d27;
-    --bg-elevated:   #1f2535;
-    --border:        #262e42;
-    --border-subtle: #1c2233;
+    --bg-base:       #0b0d10;
+    --bg-panel:      #101318;
+    --bg-panel-alt:  #14171e;
+    --bg-elevated:   #1b1f28;
+    --border:        #212638;
+    --border-subtle: #171b27;
 
-    --text-primary:  #eceef5;
-    --text-secondary:#9aa3bc;
-    --text-muted:    #5c6680;
+    --text-primary:  #e8eaf0;
+    --text-secondary:#838ba0;
+    --text-muted:    #4a5268;
 
     --accent-yellow: #f5c842;
     --accent-green:  #2dce89;
