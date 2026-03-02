@@ -7,7 +7,7 @@
  * - truncatePayload: 직렬화 8KB 초과 시 string 필드 500자 자름
  */
 
-import { analysisCycles, analysisEvents, eq, sql } from "@symposium/db";
+import { analysisCycles, eq, sql } from "@symposium/db";
 import type { DbClient } from "@symposium/db";
 
 // ── 보안 헬퍼 ────────────────────────────────────────────────
@@ -60,8 +60,8 @@ export class CycleEmitter {
 
   /**
    * 이벤트를 DB에 저장.
+   * drizzle을 우회하고 postgres-js 직접 사용 → Date 파라미터 주입 버그 회피.
    * MAX(seq)+1을 단일 INSERT-SELECT로 계산 → seq 레이스 방지.
-   * 파이프라인은 순차 emit이므로 트랜잭션 불필요.
    * UNIQUE(cycle_id, seq) 제약이 안전망 역할.
    */
   async emit(
@@ -72,7 +72,12 @@ export class CycleEmitter {
     const cycleId = this.cycleId;
     const jsonPayload = JSON.stringify(safe);
 
-    await this.db.execute(sql`
+    // drizzle.$client = 내부 postgres-js SQL 태그 함수
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pg = (this.db as any).$client as
+      (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
+
+    await pg`
       INSERT INTO analysis_events (id, cycle_id, seq, event_type, payload)
       SELECT
         gen_random_uuid(),
@@ -83,7 +88,7 @@ export class CycleEmitter {
         ) + 1,
         ${eventType},
         ${jsonPayload}::jsonb
-    `);
+    `;
   }
 
   /** 사이클 완료 또는 에러로 상태 갱신 */
