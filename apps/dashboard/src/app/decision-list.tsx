@@ -149,12 +149,12 @@ export function DecisionList({ initialData }: { initialData: DecisionRow[] }) {
           {/* thead */}
           <div style={{
             display: "grid",
-            gridTemplateColumns: "140px 70px 80px 100px 120px 100px 90px 70px 80px",
-            padding: "8px 16px",
+            gridTemplateColumns: "2fr 80px 160px 110px 100px 120px",
+            padding: "8px 20px",
             borderBottom: "1px solid var(--border)",
             background: "var(--bg-panel-alt)",
           }}>
-            {["TICKER", "ACTION", "QTY", "PRICE", "CONFIDENCE", "STATUS", "EXPIRES", "CONF%", ""].map((h) => (
+            {["TICKER", "ACTION", "CONFIDENCE", "STATUS", "EXPIRES", ""].map((h) => (
               <span key={h} style={{
                 fontFamily: "'DM Mono', monospace",
                 fontSize: "9px",
@@ -173,41 +173,34 @@ export function DecisionList({ initialData }: { initialData: DecisionRow[] }) {
               className="row-hover"
               style={{
                 display: "grid",
-                gridTemplateColumns: "140px 70px 80px 100px 120px 100px 90px 70px 80px",
-                padding: "10px 16px",
+                gridTemplateColumns: "2fr 80px 160px 110px 100px 120px",
+                padding: "12px 20px",
                 borderBottom: i < rows.length - 1 ? "1px solid var(--border-subtle)" : "none",
                 alignItems: "center",
-                cursor: "default",
               }}
             >
               {/* Ticker */}
               <div>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>
-                  {r.ticker}
+                <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+                  <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>
+                    {r.ticker}
+                  </span>
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                    {r.name.length > 12 ? r.name.slice(0, 12) + "…" : r.name}
+                  </span>
                 </div>
-                <div className="mono" style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "1px" }}>
-                  {r.name.length > 10 ? r.name.slice(0, 10) + "…" : r.name}
+                <div suppressHydrationWarning className="mono" style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "3px" }}>
+                  {new Date(r.createdAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" })}
+                  {Number(r.price) > 0 && (
+                    <span style={{ marginLeft: "8px" }}>@ ₩{Number(r.price).toLocaleString()}</span>
+                  )}
                 </div>
               </div>
 
               {/* Action */}
               <div><ActionPill action={r.action} /></div>
 
-              {/* Qty */}
-              <div className="mono" style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-                {r.quantity.toLocaleString()}
-              </div>
-
-              {/* Price */}
-              <div className="mono" style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-                {Number(r.price) === 0 ? (
-                  <span style={{ color: "var(--text-muted)", fontSize: "10px" }}>MKT</span>
-                ) : (
-                  Number(r.price).toLocaleString()
-                )}
-              </div>
-
-              {/* Confidence bar */}
+              {/* Confidence */}
               <div><ConfidenceBar value={r.confidence} /></div>
 
               {/* Status */}
@@ -221,11 +214,6 @@ export function DecisionList({ initialData }: { initialData: DecisionRow[] }) {
                 }
               </div>
 
-              {/* Created */}
-              <div suppressHydrationWarning className="mono" style={{ fontSize: "10px", color: "var(--text-muted)" }}>
-                {new Date(r.createdAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" })}
-              </div>
-
               {/* Actions */}
               <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
                 <Link href={`/decisions/${r.id}`} style={{
@@ -234,7 +222,7 @@ export function DecisionList({ initialData }: { initialData: DecisionRow[] }) {
                   color: "var(--text-muted)",
                   textDecoration: "none",
                   letterSpacing: "0.06em",
-                  padding: "2px 6px",
+                  padding: "3px 8px",
                   border: "1px solid var(--border)",
                   borderRadius: "3px",
                   transition: "all 0.15s",
@@ -251,7 +239,7 @@ export function DecisionList({ initialData }: { initialData: DecisionRow[] }) {
                     color: "var(--accent-yellow)",
                     textDecoration: "none",
                     letterSpacing: "0.06em",
-                    padding: "2px 6px",
+                    padding: "3px 8px",
                     background: "rgba(245,200,66,0.1)",
                     border: "1px solid rgba(245,200,66,0.3)",
                     borderRadius: "3px",
