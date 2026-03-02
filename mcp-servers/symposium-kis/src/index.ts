@@ -1,5 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { createServer } from "node:http";
 import { z } from "zod";
 import { KisClient, KisMockClient } from "./kis-client.js";
 import { getPrice } from "./tools/get-price.js";
@@ -183,6 +185,25 @@ server.tool(
 );
 
 // ── 서버 시작 ────────────────────────────────────────
-const transport = new StdioServerTransport();
-await server.connect(transport);
-console.error("[symposium-kis] MCP 서버 시작됨");
+const port = process.env.PORT ? parseInt(process.env.PORT) : undefined;
+
+if (port) {
+  // HTTP 모드 (orchestrator 연동, Railway 배포)
+  const httpServer = createServer(async (req, res) => {
+    if (req.url === "/mcp") {
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      await server.connect(transport);
+      await transport.handleRequest(req, res);
+    } else {
+      res.writeHead(404).end();
+    }
+  });
+  httpServer.listen(port, () => {
+    console.error(`[symposium-kis] HTTP MCP 서버 시작됨 :${port}/mcp`);
+  });
+} else {
+  // stdio 모드 (Claude Desktop 등)
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("[symposium-kis] stdio MCP 서버 시작됨");
+}

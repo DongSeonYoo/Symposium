@@ -1,5 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { createServer } from "node:http";
 import { z } from "zod";
 import { createDbClient } from "@symposium/db";
 import { getHoldings } from "./tools/get-holdings.js";
@@ -93,6 +95,25 @@ server.tool(
 );
 
 // ── 서버 시작 ────────────────────────────────────────────────
-const transport = new StdioServerTransport();
-await server.connect(transport);
-console.error("[symposium-portfolio] MCP server started");
+const port = process.env.PORT ? parseInt(process.env.PORT) : undefined;
+
+if (port) {
+  // HTTP 모드 (orchestrator 연동, Railway 배포)
+  const httpServer = createServer(async (req, res) => {
+    if (req.url === "/mcp") {
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      await server.connect(transport);
+      await transport.handleRequest(req, res);
+    } else {
+      res.writeHead(404).end();
+    }
+  });
+  httpServer.listen(port, () => {
+    console.error(`[symposium-portfolio] HTTP MCP server listening on :${port}/mcp`);
+  });
+} else {
+  // stdio 모드 (Claude Desktop 등)
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("[symposium-portfolio] stdio MCP server started");
+}
