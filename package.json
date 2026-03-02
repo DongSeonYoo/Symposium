@@ -5,7 +5,8 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "type-check": "turbo type-check",
-    "lint": "turbo lint"
+    "lint": "turbo lint",
+    "seed:api-keys": "apps/orchestrator/node_modules/.bin/tsx --env-file .env scripts/seed-api-keys.ts"
   },
   "devDependencies": {
     "turbo": "^2.3.3",
